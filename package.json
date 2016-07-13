@@ -1,0 +1,32 @@
+{
+  "name": "viz-music-player",
+  "version": "0.0.1",
+  "description": "0.0.1",
+  "main": "index.js",
+  "scripts": {
+    "pack": "build --dir",
+    "dist": "build"
+  },
+  "build": {},
+  "author": "CodeHz",
+  "license": "MIT",
+  "dependencies": {
+    "a-big-triangle": "^1.0.2",
+    "async": "^2.0.0-rc.6",
+    "canvas-fit": "^1.5.0",
+    "gl-audio-analyser": "^1.0.3",
+    "gl-context": "^0.1.1",
+    "gl-shader": "^4.2.0",
+    "gl-texture2d": "^2.0.10",
+    "glslify": "^5.1.0",
+    "musicmetadata": "^2.0.4",
+    "sharp": "^0.15.1",
+    "vue-clusterize": "^0.5.1",
+    "vue-list-view": "^0.5.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^5.12.1",
+    "electron-prebuilt": "^1.2.7",
+    "electron-rebuild": "^1.1.5"
+  }
+}

@@ -1,0 +1,585 @@
+body {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+    display: none;
+}
+
+.root {
+    background: #fff;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.max-mode {
+    position: relative;
+    background: none !important;
+    z-index: 2;
+}
+
+.max-mode > *{
+    opacity: 0;
+    transition: all ease 0.1s;
+}
+
+.max-mode::after {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    content: '';
+    background: rgba(255, 255, 255, 0);
+    transition: all ease 0.5s;
+}
+
+.max-mode:hover::after {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.max-mode:hover > * {
+    opacity: 1;
+    transition: all ease 0.5s;
+}
+
+.title-container {
+    width: 100%;
+    min-height: 8px;
+    background: #DDD;
+    -webkit-user-select: none;
+}
+
+.title {
+    background: #DDD;
+    width: 100%;
+    height: 32px;
+    display: flex;
+    box-sizing: border-box;
+}
+
+.title-text {
+    padding: 8px;
+    line-height: 16px;
+    font-size: 16px;
+    font-family: monospace;
+    white-space: nowrap;
+    text-overflow: clip;
+    max-width: calc(100vw - 144px);
+    overflow: hidden;
+    position: relative;
+    z-index: 2;
+}
+
+.padding {
+    flex: 1;
+}
+
+.title-button {
+    position: relative;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    padding: 8px 12px;
+    -webkit-app-region: no-drag;
+    z-index: 1;
+}
+
+.title-button::before {
+    position: absolute;
+    content: '';
+    top: 8px;
+    left: 12px;
+    right: 12px;
+    bottom: 8px;
+    background-size: cover;
+    z-index: 1;
+}
+
+.title-button::after {
+    position: absolute;
+    content: '';
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    transition: all 1s ease;
+    z-index: 0;
+}
+
+.title-button:hover::after {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.hide-button::before {
+    background-image: url(./res/ic_remove.svg);
+}
+
+.fullscreen-button::before {
+    background-image: url(./res/ic_fullscreen.svg);
+}
+
+.close-button {
+}
+
+.close-button::before {
+    background-image: url(./res/ic_close.svg);
+}
+
+.close-button:hover::after {
+    background: rgba(255, 0, 0, 0.5);
+}
+
+.content {
+    flex: 1;
+    flex-direction: column;
+    box-sizing: border-box;
+    display: flex;
+}
+
+.main-view-container {
+    flex: 1;
+    position: relative;
+}
+
+.main-view {
+    position: absolute;
+    display: block !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+}
+
+#mainView {
+    flex: 1;
+}
+
+.progress-bar {
+    height: 8px;
+    background: #EEE;
+}
+
+.control-bar {
+    height: 64px;
+    background: #DDD;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.control-bar-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.control-bar-button {
+    position: relative;
+}
+
+.control-bar-button > div {
+    z-index: 5;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    position: absolute;
+}
+
+.control-bar-button::before {
+    position: absolute;
+    content: '';
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0);
+    transition: all 1s ease;
+    z-index: 3;
+}
+
+.control-bar-button:hover::before {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.control-bar-mini-icon {
+    width: 18px;
+    height: 18px;
+    margin: 0 8px;
+}
+
+.control-bar-mini-icon::before {
+    margin: -9px -8px;
+}
+
+.control-bar-icon {
+    width: 24px;
+    height: 24px;
+    background-size: cover;
+    margin: 0 4px;
+}
+
+.control-bar-icon::before {
+    margin: -6px -4px;
+}
+
+.control-bar-main-icon {
+    width: 36px;
+    height: 36px;
+    background-size: cover;
+}
+
+.clusterize-cluster.loading {
+    opacity: 0;
+}
+
+.drag-layer {
+    -webkit-app-region: drag;
+}
+
+.drag-layer > * {
+    -webkit-app-region: no-drag;
+}
+
+.play-list-gui {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    background: white;
+    z-index: 10;
+    overflow: hidden;
+}
+
+.play-list-gui > * {
+}
+
+.play-list-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+.play-list-action-bar {
+    height: 32px;
+    background: #fff;
+    display: flex;
+}
+
+.play-list-button {
+    width: 32px;
+    height: 32px;
+    padding: 8px;
+    box-sizing: border-box;
+    position: relative;
+}
+
+.play-list-button::before {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    content: "";
+    background-size: 100%;
+}
+
+.play-list-button::after {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    content: "";
+    background: rgba(0, 0, 0, 0);
+    transition: all 1s ease;
+}
+
+.play-list-button:hover::after {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.play-list-close::before {
+    background-image: url(./res/ic_close.svg);
+}
+
+.play-list-add::before {
+    background-image: url(./res/ic_playlist_add.svg);
+}
+
+.play-list-clear::before {
+    background-image: url(./res/ic_clear_all.svg);
+}
+
+.play-list-load::before {
+    background-image: url(./res/ic_open.svg);
+}
+
+.play-list-save::before {
+    background-image: url(./res/ic_save.svg);
+}
+
+.play-list-default::before {
+    background-image: url(./res/ic_playlist_add_check.svg);
+}
+
+.play-list-data-container {
+    flex: 1;
+    position: relative;
+    -webkit-app-region: no-drag;
+    overflow-y: scroll;
+}
+
+.volume-gui {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: auto !important;
+    width: auto !important;
+    margin: -8px;
+    background: #EEE;
+    background-clip: border-box;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: center;
+}
+
+.volume-gui > :nth-child(1) {
+    width: 18px;
+    height: 18px;
+    margin: 8px;
+}
+
+.volume-gui > :nth-child(2) {
+    flex: 1;
+    overflow: hidden;
+}
+
+.volume-bar-container {
+    -webkit-app-region: no-drag;
+}
+
+.volume-bar-container * {
+    -webkit-user-select: none;
+}
+
+.volume-bar {
+    margin: 12px;
+    margin-bottom: 0;
+    background: #FFF;
+    width: 10px;
+    height: calc(100% - 12px);
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+.volume-bar-fill {
+    height: 0%;
+    background: #CCC;
+}
+
+.volume-bar-thumb {
+    height: 0;
+    width: 0;
+    border: 5px black solid;
+    box-sizing: content-box;
+    cursor: pointer;
+}
+
+.volume-transition {
+    top: -112px;
+    transition: all ease .5s;
+}
+
+.volume-enter, .volume-leave {
+    top: 0;
+    bottom: 0;
+}
+
+.cluster {
+    padding-top: 5px;
+}
+
+.song-item-content {
+    display: flex;
+    height: 64px;
+    -webkit-user-select: none;
+    transition: all ease .2s;
+    transform: translate(0, 0);
+    position: relative;
+    box-shadow: 0 0 0 #AAA;
+    background: #EEE;
+    z-index: 0;
+    cursor: pointer;
+}
+
+.song-item-content * {
+    z-index: 2;
+}
+
+.song-item-content::before {
+    position: absolute;
+    content: "";
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(200, 200, 200, 0);
+    transition: all ease .2s;
+    z-index: 1;
+}
+
+.song-item-content:hover {
+    transform: translate(0, -5px);
+    box-shadow: 0 5px 0 #AAA;
+    z-index: 1;
+}
+
+.song-item-frozen,
+.song-item-content:active {
+    transform: translate(0, 0) !important;
+    box-shadow: 0 0 0 #AAA !important;
+}
+
+.song-item-content:hover::before {
+    background: rgba(200, 200, 200, 1);
+}
+
+.song-item-menu-transition {
+    opacity: 1;
+    transition: all ease .3s;
+}
+
+.song-item-menu-enter, .song-item-menu-leave {
+    opacity: 0;
+}
+
+.song-item-menu-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    padding: 8px;
+    background: rgba(0, 0, 0, .5);
+}
+
+.song-item-menu-icon-button {
+    margin-left: 4px;
+    display: flex;
+    flex-direction: column;
+    width: 18px;
+    height: 36px;
+}
+
+.song-item-menu-icon-button * {
+    flex: 1;
+    background-size: contain;
+    border: 1px solid rgba(255, 255, 255, 0);
+    background-color: rgba(255, 255, 255, 0);
+    transition: all ease .5s;
+}
+
+.song-item-menu-icon-button *:hover {
+    border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.song-item-menu-icon-button *:active {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+.icon-up {
+    background-image: url(./res/ic_arrow_up.svg);
+}
+
+.icon-down {
+    background-image: url(./res/ic_arrow_down.svg);
+}
+
+.song-item-menu-button {
+    background: rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    color: white;
+    font-family: monospace;
+    padding: 4px 8px;
+    transition: all ease .5s;
+}
+
+.song-item-menu-button:hover {
+    background: white;
+    border: 1px solid white;
+    color: black;
+}
+
+.play-list-song-img {
+    width: 64px;
+    height: 64px;
+    background-size: 100%;
+}
+
+.play-list-song-info {
+    width: calc(100% - 64px);
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    font-family: monospace;
+    -webkit-user-select: none;
+}
+
+.play-list-song-title {
+    font-weight: bold;
+    text-indent: 8px;
+    width: calc(100% - 16px);
+    overflow: hidden;
+    white-space: nowrap;
+    -webkit-user-select: none;
+}
+
+.play-list-song-artist {
+    text-indent: 8px;
+    width: calc(100% - 16px);
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.progress-bar-content {
+    width: 100%;
+    height: 100%;
+    -webkit-user-select: none;
+    cursor: default;
+}
+
+.progress-bar-layer {
+    position: fixed;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: all;
+    z-index: 9999;
+}
+
+.progress-bar-active {
+    height: 100%;
+    background: #BBB;
+}

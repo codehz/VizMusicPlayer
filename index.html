@@ -1,0 +1,867 @@
+<!doctype html>
+<title>VizMusicPlayer</title>
+<link rel="stylesheet" type="text/css" href="index.css">
+<script src="lib/vue.js"></script>
+<div class="root" id="app">
+    <div class="title-container">
+        <div class="title" :class='{"max-mode": max}' :style="{'-webkit-app-region': isFullScreen ? 'no-drag' : 'drag'}">
+            <div class="title-text">
+                {{state === 'play' && curCache ? curCache.title : 'VizMusicPlayer'}}
+            </div>
+            <div class="padding">
+            </div>
+            <div class="title-button hide-button" @click="hide">
+            </div>
+            <div class="title-button fullscreen-button" @click="fullscreen">
+            </div>
+            <div class="title-button close-button" @click="close">
+            </div>
+        </div>
+    </div>
+    <div class="content">
+        <div class="main-view-container">
+            <div class="main-view" v-show="max" transition="scale" @click="switchScale">
+                <canvas id="mainView">
+                </canvas>
+            </div>
+        </div>
+        <div class="progress-bar">
+            <progress-bar :progress="progress" :progress-info="progressInfo"/>
+        </div>
+        <div class="control-bar drag-layer" :class='{"max-mode": max}' :style="{'-webkit-app-region': isFullScreen ? 'no-drag' : 'drag'}">
+            <control-bar :play-state='state' :play-mode='playMode' :play-list='playList' :is-full-screen='isFullScreen' :volume.sync='volume' />
+        </div>
+    </div>
+</div>
+<div style="display: none">
+    <div class="progress-bar-template">
+        <div class="progress-bar-content" @mousedown="moveStart">
+            <div class="progress-bar-layer" v-show="started" @mousemove="move" @mouseup="moveEnd">
+            </div>
+            <div class="progress-bar-active" :style="progressStyle" :title="progressInfo">
+            </div>
+        </div>
+    </div>
+    <div class="song-item-template">
+        <div class="song-item-content" :class='{"song-item-frozen": menuindex == index}' @dblclick='select' @contextmenu='showmenu($event)'>
+            <div class="play-list-song-img" :style="{'background-image': loaded.image ? `url(${loaded.image})` : 'none'}">
+            </div>
+            <div class="play-list-song-info">
+                <div class="play-list-song-title">
+                    {{loaded.title}}
+                </div>
+                <div class="play-list-song-artist">
+                    {{loaded.artist}}
+                </div>
+            </div>
+            <div v-if='menuindex == index' transition="song-item-menu">
+                <div class="song-item-menu-content">
+                    <div class="song-item-menu-icon-button">
+                        <div class="icon-up" @click='playListAction("moveUp")'></div>
+                        <div class="icon-down" @click='playListAction("moveDown")'></div>
+                    </div>
+                    <div class="song-item-menu-button" @click='playListAction("delete")'>delete</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="volume-bar-template">
+        <div class="volume-bar-container">
+            <div class="volume-bar">
+                <div class="volume-bar-fill" :style='{height: `${volume * 100}%`}'>
+                </div>
+                <div class="volume-bar-thumb" v-el:thumb @mousedown='start($event)'>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="control-bar-template">
+        <div class="control-bar-content">
+            <div class="control-bar-button control-bar-mini-icon" @click="openPlayList">
+                <div style="background-image: url('./res/ic_queue_music.svg')">
+                </div>
+            </div>
+            <div class="play-list-gui" v-show="showPlayList" transition="wave" :style='{"background": screenshot ? `url(${screenshot.toDataURL()}) #EEE no-repeat` : "#EEE"}'>
+                <div class="play-list-gui-close-bottom" @click="closeLayer">
+                </div>
+                <div class="play-list-content">
+                    <div class="play-list-action-bar drag-layer" :style="{'-webkit-app-region': isFullScreen ? 'no-drag' : 'drag'}">
+                        <div class="play-list-button play-list-close" @click="closeLayer">
+                        </div>
+                        <div class="play-list-button play-list-add" @click="addToPlaylist">
+                        </div>
+                        <div class="play-list-button play-list-clear" @click="clearPlaylist">
+                        </div>
+                        <div class="play-list-button play-list-load" @click="loadPlaylist">
+                        </div>
+                        <div class="play-list-button play-list-save" @click="savePlaylist">
+                        </div>
+                        <div class="play-list-button play-list-default" @click="asDefaultPlaylist">
+                        </div>
+                    </div>
+                    <div class="play-list-data-container" v-if="playListLoaded">
+                        <!-- <clusterize v-ref:cluster class='cluster' :data='playList' auto-height :row-height='64' :scroll-top='scrollPos'>
+                            <song-item :data='data' :index='index' :menuindex='menuindex' />
+                        </clusterize> -->
+                        <div v-for='data in playList' track-by="$index">
+                            <song-item :data='data' :index='$index' :menuindex='menuindex' />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="control-bar-button control-bar-mini-icon" @click="changeMode">
+                <div :style="modeIcon">
+                </div>
+            </div>
+            <div class="control-bar-button control-bar-icon" @click="rewind">
+                <div style="background-image: url('./res/ic_fast_rewind.svg')">
+                </div>
+            </div>
+            <div class="control-bar-button control-bar-main-icon" @click="play">
+                <div :style="{'background-image': playState === 'play' ? 'url(./res/ic_pause.svg)' : 'url(./res/ic_play_arrow.svg)'}">
+                </div>
+            </div>
+            <div class="control-bar-button control-bar-icon" @click="forward">
+                <div style="background-image: url('./res/ic_fast_forward.svg')">
+                </div>
+            </div>
+            <div class="control-bar-button control-bar-mini-icon" @click="openVolume">
+                <div style="background-image: url('./res/ic_volume_up.svg')">
+                </div>
+                <div class="volume-gui" v-show="showVolume" transition="volume">
+                    <div style="background-image: url('./res/ic_volume_up.svg')" @click="closeLayer">
+                    </div>
+                    <volume-bar :volume.sync='volume'/>
+                </div>
+            </div>
+            <div class="control-bar-button control-bar-mini-icon" @click="openShaderSelector">
+                <div style="background-image: url('./res/ic_equalizer.svg')">
+                </div>
+            </div>
+        </div>
+    </div>
+    <canvas id="sampleimg" width="128px" height="128px">
+    </canvas>
+</div>
+<script>
+const {remote, nativeImage} = require('electron');
+const windowMixin   = require('./script/windowMixin');
+const {app, dialog} = remote;
+const currentWindow = remote.getCurrentWindow();
+const AudioCore     = new Audio();
+const fs            = require('fs');
+const mm            = require('musicmetadata');
+const Async         = require('async');
+const path          = require('path');
+const sharp         = require('sharp');
+const Viz           = require('./script/viz');
+const viz           = new Viz(AudioCore);
+AudioCore.autoplay = true;
+
+function debounce(func, wait, immediate) {
+    var timeout;
+    return function() {
+        var context = this, args = arguments;
+        var later = function() {
+            timeout = null;
+            if (!immediate) func.apply(context, args);
+        };
+        var callNow = immediate && !timeout;
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+        if (callNow) func.apply(context, args);
+    };
+};
+
+let update = null;
+
+const ProgressBar = Vue.extend({
+    props: ["progress", "progressInfo"],
+    template: document.querySelector('.progress-bar-template'),
+    computed: {
+        progressStyle() {
+            return {
+                width: `${this.progress * 100}%`
+            };
+        }
+    },
+    data: () => ({
+        started: false
+    }),
+    methods: {
+        calcProgress(x) {
+            let value = (x - this.$el.getBoundingClientRect().left) / this.$el.offsetWidth;
+            if (value < 0) value = 0;
+            if (value > 1) value = 1;
+            this.$dispatch('progressChanged', value);
+        },
+        moveStart(event) {
+            this.calcProgress(event.clientX);
+            this.started = true;
+        },
+        move(event) {
+            if (this.started === true)
+                this.calcProgress(event.clientX);
+        },
+        moveEnd(event) {
+            if (this.started === true)
+                this.calcProgress(event.clientX);
+            this.started = false;
+        }
+    }
+});
+
+Vue.component('progress-bar', ProgressBar);
+
+const SongItem = Vue.extend({
+    props: ['data', 'index', 'menuindex'],
+    data: () => ({
+        loaded: {
+            picture: [],
+            title: '',
+            artist: ''
+        }
+    }),
+    watch: {
+        data() {
+            this.loaded = {
+                picture: [],
+                title: '',
+                artist: ''
+            };
+            this.data(data => this.loaded = data);
+        }
+    },
+    methods: {
+        select() {
+            if (this.index)
+                this.$dispatch('select', this.index);
+        },
+        showmenu() {
+            this.$dispatch('showmenu', this.index === this.menuindex ? -1 : this.index);
+        },
+        playListAction(action) {
+            this.$dispatch('playListAction', {action, index: this.index});
+        }
+    },
+    created() {
+        this.data(data => this.loaded = data);
+    },
+    template: document.querySelector('.song-item-template')
+});
+
+Vue.component('song-item', SongItem);
+
+const VolumeBar = Vue.extend({
+    props: ['volume'],
+    template: document.querySelector('.volume-bar-template'),
+    data: function() {
+        return {
+            mousemove: this.onmousemove.bind(this),
+            mouseup: this.onmouseup.bind(this)
+        };
+    },
+    methods: {
+        start() {
+            window.addEventListener('mousemove', this.mousemove);
+            window.addEventListener('mouseup', this.mouseup);
+        },
+        end() {
+            window.removeEventListener('mousemove', this.mousemove);
+            window.removeEventListener('mouseup', this.mouseup);
+        },
+        onmousemove({pageY}) {
+            let volume = document.body.offsetHeight - pageY - 49;
+            if (volume > 100) volume = 100;
+            if (volume < 0) volume = 0;
+            this.volume = volume / 100;
+        },
+        onmouseup(event) {
+            this.onmousemove(event);
+            this.end();
+        }
+    }
+});
+
+Vue.component('volume-bar', VolumeBar);
+
+const ControlBar = Vue.extend({
+    props: ['playMode', 'playList', 'playState', 'isFullScreen', 'volume'],
+    template: document.querySelector('.control-bar-template'),
+    data: () => ({
+        show:           'none',
+        willhide:       false,
+        clusterHeight:  300,
+        playListLoaded: false,
+        scrollPos:      0,
+        screenshot:     null,
+        menuindex:      -1,
+    }),
+    watch: {
+        playList() {
+            // if (this.playListLoaded) {
+            //     this.scrollPos = document.querySelector('.root .cluster').scrollTop;
+            //     this.playListLoaded = false;
+            //     this.$nextTick(() => {
+            //         this.playListLoaded = true;
+            //     });
+            // }
+            //this.$refs.cluster.redraw();
+        },
+        scrollPos() {
+            console.log(this.scrollPos);
+        },
+        playListLoaded() {
+            // if (this.playListLoaded) {
+            //     const el = document.querySelector('.root .cluster');
+            //     let lastScrollPos = -1;
+            //     const forceSyncScrollPos = () => {
+            //         lastScrollPos = el.scrollTop;
+            //         el.scrollTop = this.scrollPos;
+            //         if (el.scrollTop != this.scrollPos && lastScrollPos != el.scrollTop) {
+            //             setTimeout(forceSyncScrollPos, 0);
+            //         }
+            //     };
+            //     setTimeout(forceSyncScrollPos, 0);
+            // }
+        },
+        willhide() {
+            if (this.willhide === true)
+                currentWindow.capturePage(data => {
+                    this.screenshot = data;
+                    this.show = 'none';
+                    this.willhide = false;
+                });
+        }
+    },
+    computed: {
+        modeIcon() {
+            const url = {
+                'repeat':     './res/ic_repeat.svg',
+                'repeat_one': './res/ic_repeat_one.svg',
+                'list':       './res/ic_playlist_play.svg',
+                'random':     './res/ic_shuffle.svg'
+            }[this.playMode];
+            return {
+                backgroundImage: `url(${url})`
+            };
+        },
+        showPlayList() {
+            return this.show === 'playList';
+        },
+        showVolume() {
+            return this.show === 'volume';
+        }
+    },
+    components: {
+        "clusterize": require("vue-clusterize")
+    },
+    events: {
+        select() {
+            this.willhide = true;
+            return true;
+        },
+        showmenu(index) {
+            this.menuindex = index;
+        },
+        playListAction({action}) {
+            setTimeout(() => {
+                switch(action) {
+                    case 'moveUp':
+                        this.menuindex = (this.menuindex - 1 + this.playList.length) % this.playList.length;
+                        break;
+                    case 'moveDown':
+                        this.menuindex = (this.menuindex + 1) % this.playList.length;
+                        break;
+                }
+            }, 0);
+            return true;
+        }
+    },
+    created() {
+        window.addEventListener('resize', () => this.screenshot = null);
+    },
+    transitions: {
+        wave: {
+            css: false,
+            enter(el, done) {
+                const {top, left, bottom, right} = el.previousElementSibling.getBoundingClientRect();
+                el.style.top    = top  + 'px';
+                el.style.left   = left + 'px';
+                el.style.right  = document.documentElement.clientWidth  - right  + 'px';
+                el.style.bottom = document.documentElement.clientHeight - bottom + 'px';
+                el.style.opacity = 0;
+                el.limit = 30;
+                const func = () => {
+                    if (el.limit <= 0) {
+                        el.style.top     = '';
+                        el.style.left    = '';
+                        el.style.right   = '';
+                        el.style.bottom  = '';
+                        el.style.opacity = '';
+                        this.playListLoaded = true;
+                        return done();
+                    }
+                    el.limit--;
+                    el.style.top     = parseFloat(el.style.top)    * 0.8 + 'px';
+                    el.style.left    = parseFloat(el.style.left)   * 0.8 + 'px';
+                    el.style.right   = parseFloat(el.style.right)  * 0.8 + 'px';
+                    el.style.bottom  = parseFloat(el.style.bottom) * 0.8 + 'px';
+                    el.style.opacity = 1 - (1 - el.style.opacity)  * 0.8;
+                    window.requestAnimationFrame(func);
+                };
+                window.requestAnimationFrame(func);
+            },
+            leave(el, done) {
+                let {top, left, bottom, right} = el.previousElementSibling.getBoundingClientRect();
+                right  = document.documentElement.clientWidth  - right;
+                bottom = document.documentElement.clientHeight - bottom;
+                el.limit = 30;
+                el.style.top     = '0px';
+                el.style.left    = '0px';
+                el.style.right   = '0px';
+                el.style.bottom  = '0px';
+                el.style.opacity = 1;
+                this.playListLoaded = false;
+                //this.scrollPos = document.querySelector('.root .cluster').scrollTop;
+                const func = () => {
+                    if (el.limit <= 0) {
+                        el.style.top     = '';
+                        el.style.left    = '';
+                        el.style.right   = '';
+                        el.style.bottom  = '';
+                        el.style.opacity = '';
+                        return done();
+                    }
+                    el.limit--;
+                    el.style.top    = top    - (top    - parseFloat(el.style.top))    * 0.9 + 'px';
+                    el.style.left   = left   - (left   - parseFloat(el.style.left))   * 0.9 + 'px';
+                    el.style.right  = right  - (right  - parseFloat(el.style.right))  * 0.9 + 'px';
+                    el.style.bottom = bottom - (bottom - parseFloat(el.style.bottom)) * 0.9 + 'px';
+                    el.style.opacity *= 0.9;
+                    window.requestAnimationFrame(func);
+                };
+                window.requestAnimationFrame(func);
+            }
+        }
+    },
+    methods: {
+        getSong(first, last, cb) {
+            console.log('get', first, last);
+            Async.map(this.playList.slice(first, last + 1 || 9e9), (data, func) => data(res => func(null, res)), (err, data) =>{
+                cb(data)
+            });
+        },
+        getSongCount(cb) {
+            console.log('getLength');
+            cb(this.playList.length);
+        },
+        openPlayList() {
+            this.show = 'playList';
+        },
+        closeLayer() {
+            this.willhide = true;
+        },
+        addToPlaylist() {
+            this.$dispatch('addToPlaylist');
+        },
+        clearPlaylist() {
+            this.$dispatch('clearPlaylist');
+            this.scrollPos = 0;
+        },
+        loadPlaylist() {
+            this.$dispatch('loadPlaylist');
+        },
+        savePlaylist() {
+            this.$dispatch('savePlaylist');
+        },
+        asDefaultPlaylist() {
+            this.$dispatch('asDefaultPlaylist');
+        },
+        changeMode() {
+            const arr = ['repeat', 'repeat_one', 'list', 'random']
+            this.$dispatch('modeChanged', arr[(arr.indexOf(this.playMode) + 1) % arr.length]);
+        },
+        rewind() {
+            this.$dispatch('playControl', 'rewind');
+        },
+        play() {
+            this.$dispatch('playControl', 'play');
+        },
+        forward() {
+            this.$dispatch('playControl', 'forward');
+        },
+        openVolume() {
+            this.show = 'volume';
+        },
+        openShaderSelector() {
+            this.$dispatch('openShaderSelector');
+        }
+    }
+});
+
+Vue.component('control-bar', ControlBar);
+
+const vm = new Vue({
+    el: "#app",
+    data: {
+        progressChanged: false,
+        progress:        0,
+        progressInfo:    '00:00/00:00',
+        playMode:        'list',
+        canplay:         false,
+        state:           'stop',
+        seekState:       'none',
+        seekTarget:      -1,
+        playList:        [],
+        pos:             0,
+        volume:          1.0,
+        max:             false,
+        curCache:        null,
+        inited:          false,
+        currentFrag:     path.join(__dirname, './script/index-simple.frag'),
+        currentPlaylistPath: null,
+        config: {
+            defaultPlaylistPath: '',
+            playMode: 'list',
+            volume: 1.0,
+            playPos: 0,
+            frag: path.join(__dirname, './script/index-simple.frag')
+        }
+    },
+    mixins: [windowMixin(currentWindow)],
+    created() {
+        AudioCore.addEventListener('timeupdate', () => {
+            this.progressChanged = true;
+            this.progress = AudioCore.currentTime / AudioCore.duration;
+        });
+        AudioCore.addEventListener('canplay', () => this.canplay   = true);
+        AudioCore.addEventListener('play',    () => this.state     = 'play');
+        AudioCore.addEventListener('playing', () => this.state     = 'play');
+        AudioCore.addEventListener('pause',   () => this.state     = 'pause');
+        AudioCore.addEventListener('seeking', () => this.seekState = 'start');
+        AudioCore.addEventListener('seeked',  () => this.seekState = 'finish');
+        AudioCore.addEventListener('ended',   () => this.ended());
+
+        currentWindow.on('enter-full-screen', () => this.setWindow());
+        currentWindow.on('leave-full-screen', () => this.setWindow());
+        this.setWindow();
+
+        this.readConfig();
+
+        update = debounce(() => this.saveConfig(), 1500);
+    },
+    methods: {
+        readConfig() {
+            fs.readFile(path.join(app.getPath('userData'), 'config.json'), (err, data) => {
+                if (!err) {
+                    const parsed = JSON.parse(data);
+                    Object.keys(this.config).forEach(key => parsed[key] && (this.config[key] = parsed[key]));
+                    if (this.config.defaultPlaylistPath) {
+                        this.readPlaylist(this.config.defaultPlaylistPath, () => {
+                            if (this.config.playPos > 0 && this.config.playPos < this.playList.length) {
+                                this.pos = this.config.playPos;
+                            } else {
+                                this.config.playPos = 0;
+                            }
+                        });
+                    }
+                    this.playMode = this.config.playMode;
+                    this.volume = this.config.volume;
+                    this.useFrag(this.config.frag);
+                }
+                setTimeout(() => this.inited = true, 2000);
+            })
+        },
+        saveConfig() {
+            if (this.inited)
+                fs.writeFile(path.join(app.getPath('userData'), 'config.json'), JSON.stringify(this.config), err => console.log(err));
+        },
+        readPlaylist(file, cb) {
+            console.log(file);
+            fs.readFile(file, (err, list) => {
+                this.addToPlaylist(JSON.parse(list));
+                if (cb) cb();
+            });
+        },
+        writePlaylist(file) {
+            console.log(file);
+            fs.writeFile(file, JSON.stringify(this.playList.map(item => item.file)), err => console.log(err));
+        },
+        ended() {
+            switch (this.playMode) {
+                case 'repeat':
+                    this.pos++;
+                    if (this.pos >= this.playList.length) {
+                        this.pos = 0;
+                    }
+                    AudioCore.src = this.curFile;
+                    this.updateImage();
+                    break;
+                case 'repeat_one':
+                    AudioCore.play();
+                    break;
+                case 'list':
+                    this.pos++;
+                    if (this.pos >= this.playList.length) {
+                        this.pos = 0;
+                        break;
+                    }
+                    AudioCore.src = this.curFile;
+                    this.updateImage();
+                    break;
+                case 'random':
+                    this.pos = Math.floor(Math.random() * this.playList.length);
+                    AudioCore.src = this.curFile;
+                    this.updateImage();
+                    break;
+            }
+        },
+        updateImage() {
+            if (this.playList[this.pos])
+                this.playList[this.pos](music => music.picture.length > 0 && music.srcimage(image => viz.updateImage(image)));
+        },
+        switchScale() {
+            this.max = !this.max;
+        },
+        setWindow() {
+            setTimeout(() => {
+                const that = this;
+                currentWindow.setThumbarButtons([{
+                    tooltip: 'rewind',
+                    icon: path.join(__dirname, 'rewind.png'),
+                    click() {
+                        that.$emit('playControl', 'rewind');
+                    }
+                }, {
+                    tooltip: this.state === 'play' ? 'pause' : 'play',
+                    icon: path.join(__dirname, this.state === 'play' ? 'pause.png' : 'play.png'),
+                    click() {
+                        that.$emit('playControl', 'play');
+                    }
+                }, {
+                    tooltip: 'forward',
+                    icon: path.join(__dirname, 'forward.png'),
+                    click() {
+                        that.$emit('playControl', 'forward');
+                    }
+                }]);
+                currentWindow.setOverlayIcon(path.join(__dirname, this.state === 'play' ? 'play_circle_filled.png' : 'pause_circle_filled.png'), this.state === 'play' ? 'play' : 'pause');
+                currentWindow.setProgressBar(this.progress);
+            }, 0);
+        },
+        addToPlaylist(files) {
+            this.playList.push(...files.map(file => callback => mm(fs.createReadStream(file), (err, result) => {
+                    if (result.picture.length > 0) {
+                        sharp(result.picture[0].data).resize(64).png().toBuffer((err, buffer) => {
+                            result.image = nativeImage.createFromBuffer(buffer).toDataURL();
+                            callback(result)
+                        });
+                        result.srcimage = cb => cb(nativeImage.createFromBuffer(result.picture[0].data).toDataURL());
+                    }
+                    else
+                        callback(result);
+                })).map((ret, i) => Object.assign(ret, {file: files[i]})));
+        },
+        useFrag(frag) {
+            this.currentFrag = frag;
+            viz.updateShader({frag});
+        }
+    },
+    events: {
+        progressChanged(progress) {
+            if (!AudioCore.duration) return;
+            if (!this.seekState == 'start') {
+                this.seekTarget = progress;
+                return;
+            }
+            this.progress = progress;
+        },
+        addToPlaylist() {
+            dialog.showOpenDialog(currentWindow, {
+                filters: [{
+                    name: 'mp3', extensions: ['mp3']
+                }],
+                defaultPath: app.getPath('music'),
+                properties: ['openFile', 'multiSelections']
+            }, files => {
+                if (!files || files.length === 0) return ;
+                this.addToPlaylist(files);
+            });
+        },
+        modeChanged(mode) {
+            this.playMode = mode;
+        },
+        playControl(mode) {
+            if (mode === 'play') {
+                if (this.canplay == true) {
+                    if (this.state != 'play')
+                        AudioCore.play();
+                    else
+                        AudioCore.pause();
+                } else {
+                    AudioCore.src = this.curFile;
+                    this.updateImage();
+                }
+            } else if (mode === 'rewind') {
+                this.pos--;
+                if (this.pos < 0)
+                    this.pos = this.playList.length - 1;
+                AudioCore.src = this.curFile;
+                this.updateImage();
+            } else if (mode === 'forward') {
+                this.pos++;
+                if (this.pos >= this.playList.length)
+                    this.pos = 0;
+                AudioCore.src = this.curFile;
+                this.updateImage();
+            }
+        },
+        clearPlaylist() {
+            this.playList = [];
+        },
+        select(num) {
+            this.pos = num;
+            AudioCore.src = this.curFile;
+            this.updateImage();
+        },
+        loadPlaylist() {
+            dialog.showOpenDialog(currentWindow, {
+                filters: [{
+                    name: 'playlist', extensions: ['playlist']
+                }],
+                defaultPath: app.getPath('home')
+            }, files => {
+                if (!files || files.length == 0) return ;
+                this.readPlaylist(files[0]);
+                this.currentPlaylistPath = files[0];
+            });
+        },
+        savePlaylist(save) {
+            dialog.showSaveDialog(currentWindow, {
+                filters: [{
+                    name: 'playlist', extensions: ['playlist']
+                }],
+                defaultPath: this.currentPlaylistPath || app.getPath('home')
+            }, file => {
+                if (!file) return ;
+                this.writePlaylist(file);
+                this.currentPlaylistPath = file;
+                if (save) {
+                    this.config.defaultPlaylistPath = this.currentPlaylistPath;
+                    update();
+                }
+            });
+        },
+        playListAction({action, index}) {
+            switch (action) {
+                case 'delete':
+                    this.playList.splice(index, 1);
+                    break;
+                case 'moveUp':
+                    this.playList.splice((index - 1 + this.playList.length) % this.playList.length, 0, this.playList.splice(index, 1)[0]);
+                    break;
+                case 'moveDown':
+                    this.playList.splice((index + 1) % this.playList.length, 0, this.playList.splice(index, 1)[0]);
+                    break;
+            }
+        },
+        asDefaultPlaylist() {
+            if (this.currentPlaylistPath) {
+                this.config.defaultPlaylistPath = this.currentPlaylistPath;
+                update();
+            }
+            else
+                this.$emit('savePlaylist', true);
+        },
+        openShaderSelector() {
+            dialog.showOpenDialog(currentWindow, {
+                filters: [{
+                    name: 'frag', extensions: ['frag']
+                }],
+                defaultPath: app.getPath('home')
+            }, files => {
+                if (!files || files.length == 0) return ;
+                this.useFrag(files[0]);
+            });
+        }
+    },
+    computed: {
+        curFile() {
+            if (this.pos >= 0 && this.pos < this.playList.length) {
+                this.playList[this.pos](r => this.curCache = r);
+                const splitedPath = this.playList[this.pos].file.split(path.sep);
+                return [splitedPath[0], ...splitedPath.slice(1).map(encodeURIComponent)].join(path.sep);
+            }
+            return '';
+        }
+    },
+    transitions: {
+        scale: {
+            css: false,
+            enter(el, done) {
+                el.style.top      = '0';
+                el.style.left     = '0';
+                el.style.right    = '0';
+                el.style.bottom   = '0';
+                el.style.position = 'fixed';
+                require('canvas-fit')(mainView);
+                return done();
+            },
+            leave(el, done) {
+                el.style.top      = '0';
+                el.style.left     = '0';
+                el.style.right    = '0';
+                el.style.bottom   = '0';
+                el.style.position = 'absolute';
+                require('canvas-fit')(mainView);
+                return done();
+            }
+        }
+    },
+    watch: {
+        seekState() {
+            if (this.seekState = 'finish' && this.seekTarget != -1) {
+                this.progress = progress;
+                this.seekTarget = -1;
+            }
+        },
+        canplay() {
+            this.setWindow();
+        },
+        progress() {
+            this.setWindow();
+            if (this.progressChanged) return this.progressChanged = false;
+            AudioCore.currentTime = this.progress * AudioCore.duration;
+        },
+        state() {
+            this.setWindow();
+        },
+        max() {
+            currentWindow.setAlwaysOnTop(this.max);
+            currentWindow.setSkipTaskbar(this.max);
+            if (!this.max) this.setWindow();
+        },
+        config() {
+            update();
+        },
+        playMode() {
+            this.config.playMode = this.playMode;
+            update();
+        },
+        volume() {
+            this.config.volume = this.volume;
+            AudioCore.volume = this.volume;
+            update();
+        },
+        pos() {
+            this.config.playPos = this.pos;
+            update();
+        },
+        currentFrag() {
+            this.config.frag = this.currentFrag;
+            update();
+        }
+    }
+})
+</script>
